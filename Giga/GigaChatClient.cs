@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using static GeminiApiClient;
 
 public class GigaChatClient
 {
@@ -110,6 +111,9 @@ public class GigaChatClient
         {
             await RefreshTokenAsync();
         }
+        _httpClient.DefaultRequestHeaders.Authorization = null;
+        _httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
     }
 
     private async Task RefreshTokenAsync()
@@ -141,15 +145,15 @@ public class GigaChatClient
 
             Console.WriteLine($"Отправляем запрос на получение токена...");
             Console.WriteLine($"URL: {_authUrl}");
-            Console.WriteLine($"Scope: {_scope}");
-            Console.WriteLine($"Client ID: {_clientId}");
-            Console.WriteLine($"Authorization: Basic {encodedCredentials.Substring(0, 10)}...");
+            //Console.WriteLine($"Scope: {_scope}");
+            //Console.WriteLine($"Client ID: {_clientId}");
+            //Console.WriteLine($"Authorization: Basic {encodedCredentials.Substring(0, 10)}...");
 
-            var response = await _httpClient.SendAsync(tokenRequest);
+            var response =  _httpClient.Send(tokenRequest);
 
             var responseContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine($"Статус ответа: {response.StatusCode}");
-            Console.WriteLine($"Содержимое ответа: {responseContent}");
+            //Console.WriteLine($"Содержимое ответа: {responseContent}");
 
             if (!response.IsSuccessStatusCode)
             {
@@ -178,6 +182,23 @@ public class GigaChatClient
     public void Dispose()
     {
         _httpClient?.Dispose();
+    }
+
+    public async Task<List<ModelInfo>> GetModels()
+    {
+        await EnsureValidTokenAsync();
+
+        var response = await _httpClient.GetAsync($"{_baseUrl}/models");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new GigaChatException($"API Error: {response.StatusCode} - {errorContent}");
+        }
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        var res=    ModelsDeserializer.Parse(responseContent);
+        return res.Data;
     }
 }
 
@@ -234,4 +255,40 @@ internal class TokenResponse
     public string AccessToken { get; set; }
     [JsonPropertyName("expires_at")]
     public long ExpiresAt { get; set; }
+}
+public class ModelsList
+{
+    [JsonPropertyName("object")]
+    public string ObjectType { get; set; }
+
+    [JsonPropertyName("data")]
+    public List<ModelInfo> Data { get; set; }
+}
+
+public class ModelInfo
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; }
+
+    [JsonPropertyName("object")]
+    public string ObjectType { get; set; }
+
+    [JsonPropertyName("owned_by")]
+    public string OwnedBy { get; set; }
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; }
+}
+
+// 2. Метод для десериализации
+public static class ModelsDeserializer
+{
+    public static ModelsList Parse(string json)
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        return JsonSerializer.Deserialize<ModelsList>(json, options);
+    }
 }

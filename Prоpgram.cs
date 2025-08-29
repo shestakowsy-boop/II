@@ -14,7 +14,7 @@ class Program
     // Пример 1: Простое игнорирование SSL ошибок (для разработки)
     static async Task Example1_SimpleIgnoreSSL()
     {
-        Console.WriteLine("=== Пример 1: Игнорирование SSL ошибок ===");
+       // Console.WriteLine("=== Пример 1: Игнорирование SSL ошибок ===");
 
         var client = new GigaChatClient(
 "4253e9c1-0929-4e42-a04c-9bb5abab7073",
